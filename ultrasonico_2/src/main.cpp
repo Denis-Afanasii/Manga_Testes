@@ -1,18 +1,19 @@
 #include <Arduino.h>
+#include <Ultrasonic.h>
 
-// put function declarations here:
-int myFunction(int, int);
+
+Ultrasonic ultrasonic1(21, 19);	// An ultrasonic sensor HC-04
+
 
 void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+  Serial.begin(9600);          
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-}
+  Serial.print("Sensor 01: ");
+  Serial.print(ultrasonic1.read()); // Prints the distance on the default unit (centimeters)
+  Serial.println("cm");
 
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+
+  delay(1000);
 }
