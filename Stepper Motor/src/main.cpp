@@ -1,18 +1,28 @@
 #include <Arduino.h>
-
-// put function declarations here:
-int myFunction(int, int);
-
+#include <Stepper.h>
+// Define number of steps per rotation:
+const int stepsPerRevolution = 2048;
+// Wiring:
+// Pin 8 to IN1 on the ULN2003 driver
+// Pin 9 to IN2 on the ULN2003 driver
+// Pin 10 to IN3 on the ULN2003 driver
+// Pin 11 to IN4 on the ULN2003 driver
+// Create stepper object called 'myStepper', note the pin order:
+Stepper myStepper = Stepper(stepsPerRevolution, 14, 33, 27, 32);
 void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+  // Set the speed to 5 rpm:
+  myStepper.setSpeed(15);
+  
+  // Begin Serial communication at a baud rate of 9600:
+  Serial.begin(9600);
 }
-
 void loop() {
-  // put your main code here, to run repeatedly:
-}
-
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+  // Step one revolution in one direction:
+  Serial.println("clockwise");
+  myStepper.step(stepsPerRevolution);
+  
+  // Step one revolution in the other direction:
+  //Serial.println("counterclockwise");
+  //myStepper.step(-stepsPerRevolution);
+  //delay(500);
 }
