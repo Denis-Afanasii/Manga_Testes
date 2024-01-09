@@ -1,39 +1,58 @@
 #include <Arduino.h>
 
-#define LED 19
+#define ADC_VREF_mV 3300.0
+#define ADC_RESOLUTION 4096.0
+#define PIN_LM35 25
 
-unsigned long previousMillis = 0;
-const long interval = 100;
+#define PELTIER 19
 
+unsigned long previousMillisPeltier = 0;
+unsigned long previousMillisTemperature = 0;
+int interval = 5000;
 
-float tempc;
-float tempf;
-float vout;
+int peltierState = 0;
 
-
-void setup() {
-Serial.begin(9600);
-pinMode(LED, OUTPUT);
-
+void setup()
+{
+  Serial.begin(9600);
+  pinMode(PELTIER, OUTPUT);
 }
 
-void loop() {
-  // put your main code here, to run repeatedly:
+void loop()
+{
 
-unsigned long currentMillis = millis();
+  /*Serial.println("Millis atual:");
+  Serial.print(millis());*/
+  unsigned long currentMillisPeltier = millis();
+  unsigned long currentMillisTemperature = millis();
 
-if(currentMillis - previousMillis >= interval){
+  int adcVal = analogRead(PIN_LM35);
+  float milliVolt = adcVal * (ADC_VREF_mV / ADC_RESOLUTION);
 
-previousMillis = currentMillis;
+  /* float tempC = milliVolt / 10;
+  Serial.print("Temperatura: ");
+  Serial.print(tempC);
+  delay(5000); */
 
+  if (currentMillisPeltier - previousMillisPeltier >= interval && peltierState == 0)
+  {
+    peltierState = 1;
+    previousMillisPeltier = currentMillisPeltier;
 
-  Serial.println("A aquecer o Modulo durante 20 segundos");
-  digitalWrite(LED, HIGH);
-  //delay(20000);
+    Serial.println("A ligar o Modulo durante 5 segundos");
+    digitalWrite(PELTIER, HIGH);
+    // delay(20000);
+  } else {
+    digitalWrite(PELTIER, HIGH);
   }
-  
-  Serial.println("A desligar o Módulo durante 20 segundos");
-  digitalWrite(LED, LOW);
-  delay(20000);
 
+  if (currentMillisTemperature - previousMillisTemperature >= 3000)
+  {
+
+    previousMillisTemperature = currentMillisTemperature;
+
+    float tempC = milliVolt / 10;
+    Serial.print("Temperatura: ");
+    Serial.println(tempC);
+  }
 }
