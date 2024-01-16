@@ -31,7 +31,10 @@ int MacSend = 0;
 
 Ultrasonic ultrasonic1(21, 22);
 
-/*void callback(char *topic, byte *payload, unsigned int length)
+const float containerVolume = 180.0;
+const float containerHeight = 8.0;
+
+void callback(char *topic, byte *payload, unsigned int length)
 {
   Serial.print("Message arrived in topic: ");
   Serial.print(topic);
@@ -43,10 +46,11 @@ Ultrasonic ultrasonic1(21, 22);
   }
   Serial.println("'");
 
-  if (String(topic) == "ultraSonic")
+  if (String(topic) == "peltierControl")
   {
     String message = "";
-    for(int i = 0; i < length; i++){
+    for (int i = 0; i < length; i++)
+    {
       message.concat((char)payload[i]);
     }
 
@@ -54,23 +58,21 @@ Ultrasonic ultrasonic1(21, 22);
 
     if (message == "ON")
     {
-      Serial.print("Turning On UltraSonic Sensor!");
-      analogWrite(21, 255);
-      analogWrite(19, 255);
+      digitalWrite(PELTIER, HIGH);
+      peltierState = 1;
     }
-    else //if (String((char)payload[0]) == "OFF")
+    else if (message == "OFF") // if (String((char)payload[0]) == "OFF")
     {
-      analogWrite(21, );
-      analogWrite(19, 0);
+      digitalWrite(PELTIER, LOW);
+      peltierState = 0;
     }
   }
-} */
+}
 
 void setup()
 {
   Serial.begin(9600);
   Serial.println("\nConsole started.");
-
 
   WiFi.begin("RPiHotspot", "1234567890");
 
@@ -93,9 +95,39 @@ void setup()
   Serial.println("Connected to MQTT");
   // sensors.begin();
   client.subscribe("ultraSonic");
-  // client.setCallback(callback);
+  client.subscribe("peltierControl");
+  client.setCallback(callback);
 
-  digitalWrite(PELTIER, HIGH);
+  //  digitalWrite(PELTIER, HIGH);
+}
+
+float calculateVolume(float distanceInCentimeters)
+{
+  const float containerHeight = 300.0;
+
+  float distanceInMeters = distanceInCentimeters / 100.0;
+
+  // Calcule o raio com base no volume total e altura
+  float radius = sqrt(containerVolume / (PI * containerHeight));
+
+  // Calcule o volume do cilindro usando o raio e a distância medida pelo sensor até a superfície do líquido
+  float volumeInLiters = PI * pow(radius, 2) * (containerHeight - distanceInMeters) / 1000.0;
+
+  return volumeInLiters;
+}
+
+void sendVolume()
+{
+
+  const char *topic = "volume";
+
+  String message = "{\"clientId\": \"" + WiFi.macAddress() + "\", \"message\": \"" + calculateVolume(ultrasonic1.read()) +"\"}";
+
+  Serial.println("Sending Volume: '" + message + "'.");
+
+  client.publish(topic, String(message).c_str());
+
+  //  {"clientId":"","message":""}
 }
 
 void sendDistance()
@@ -107,7 +139,7 @@ void sendDistance()
 
   client.publish(topic, String(message).c_str());
 
-//  {"clientId":"","message":""}
+  //  {"clientId":"","message":""}
 }
 
 void sendMacAdress()
@@ -133,7 +165,6 @@ void sendTemp()
 
   client.publish(topic, String(message).c_str());
 }
-
 
 /*void sendTemp()
 {
@@ -164,9 +195,7 @@ void loop()
   unsigned long currentMillisTemperature = millis();
   unsigned long currentMillisDistance = millis();
 
-
-
-  if (currentMillisTemperature - previousMillisTemperature >= 3000)
+  /*if (currentMillisTemperature - previousMillisTemperature >= 3000)
   {
     previousMillisTemperature = currentMillisTemperature;
 
@@ -178,13 +207,19 @@ void loop()
     previousMillisDistance = currentMillisDistance;
 
     sendDistance();
-  }
+    sendVolume();
+  }*/
 
-  ;
+  float distance = ultrasonic1.read();
+  Serial.println("Distance: " + String(distance) + " cm");
+  float fixedDistance = 10.0;
+  float volume = calculateVolume(fixedDistance);
+  Serial.println("Volume: " + String(volume) + " liters");
 
   if (MacSend == 0)
   {
     sendMacAdress();
     MacSend = 1;
   }
+  delay(1000);
 }
