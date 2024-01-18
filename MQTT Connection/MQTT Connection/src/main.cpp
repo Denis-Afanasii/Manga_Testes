@@ -1,8 +1,6 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
-#include <OneWire.h>
-// #include <DallasTemperature.h>
 #include <Ultrasonic.h>
 
 #define ADC_VREF_mV 3300.0
@@ -19,8 +17,6 @@ int peltierState = 0;
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-OneWire oneWire(26);
-// DallasTemperature sensors(&oneWire);
 
 const char *mqtt_broker = "192.168.50.10";
 const char *mqtt_username = "pwdam";
@@ -30,9 +26,6 @@ const uint16_t port = 1883;
 int MacSend = 0;
 
 Ultrasonic ultrasonic1(21, 22);
-
-const float containerVolume = 180.0;
-const float containerHeight = 8.0;
 
 void callback(char *topic, byte *payload, unsigned int length)
 {
@@ -93,7 +86,7 @@ void setup()
     delay(500);
   }
   Serial.println("Connected to MQTT");
-  // sensors.begin();
+  
   client.subscribe("ultraSonic");
   client.subscribe("peltierControl");
   client.setCallback(callback);
@@ -101,18 +94,27 @@ void setup()
   //  digitalWrite(PELTIER, HIGH);
 }
 
+const float upperRadius = 15 / 2; // Raio da parte superior do copo em centímetros
+const float lowerRadius = 10 / 2; // Raio da parte inferior do copo em centímetros
+const float containerHeight = 30;   // Altura total do copo em centímetros
+
 float calculateVolume(float distanceInCentimeters)
 {
-  const float containerHeight = 300.0;
 
-  float distanceInMeters = distanceInCentimeters / 100.0;
+  /*
+    Serial.println(upperRadius);
+    Serial.println(lowerRadius);
+    Serial.println(containerHeight);
+  */
 
-  // Calcule o raio com base no volume total e altura
-  float radius = sqrt(containerVolume / (PI * containerHeight));
+  float height = containerHeight - distanceInCentimeters;
+  /*Serial.print("Resultado height: ");
+  Serial.println(height);*/
 
-  // Calcule o volume do cilindro usando o raio e a distância medida pelo sensor até a superfície do líquido
-  float volumeInLiters = PI * pow(radius, 2) * (containerHeight - distanceInMeters) / 1000.0;
 
+  float volumeInLiters = (((PI * height) / 3) * (pow(upperRadius, 2) + pow(lowerRadius, 2) + (upperRadius * lowerRadius)) / 1000);
+  /*Serial.print("Resultado do volume: ");
+  Serial.println(volumeInLiters);*/
   return volumeInLiters;
 }
 
@@ -121,7 +123,7 @@ void sendVolume()
 
   const char *topic = "volume";
 
-  String message = "{\"clientId\": \"" + WiFi.macAddress() + "\", \"message\": \"" + calculateVolume(ultrasonic1.read()) +"\"}";
+  String message = "{\"clientId\": \"" + WiFi.macAddress() + "\", \"message\": \"" + calculateVolume(ultrasonic1.read()) + "\"}";
 
   Serial.println("Sending Volume: '" + message + "'.");
 
@@ -166,21 +168,6 @@ void sendTemp()
   client.publish(topic, String(message).c_str());
 }
 
-/*void sendTemp()
-{
-  sensors.requestTemperatures();
-  float temperatureC = sensors.getTempCByIndex(0);
-  float temperatureF = sensors.getTempFByIndex(0);
-
-  const char *topic = "temp";
-  // const String message = String(temperatureC) + "C / " + String(temperatureF) + "F";
-  const String message = String(temperatureC);
-
-  Serial.println("Sending message to broker: '" + message + "'.");
-
-  client.publish(topic, String(message).c_str());
-}*/
-
 void loop()
 {
   client.loop();
@@ -210,16 +197,27 @@ void loop()
     sendVolume();
   }*/
 
-  float distance = ultrasonic1.read();
-  Serial.println("Distance: " + String(distance) + " cm");
-  float fixedDistance = 10.0;
-  float volume = calculateVolume(fixedDistance);
-  Serial.println("Volume: " + String(volume) + " liters");
+  if(currentMillisDistance - previousMillisDistance >= 2000){
+    previousMillisDistance = currentMillisDistance;
+
+    float valorultrasonico = ultrasonic1.read();
+
+
+  Serial.print("O sensor está a ler: ");
+  Serial.print(ultrasonic1.read());
+  Serial.println(" cm");
+  Serial.print("O resultado do calculo é: ");
+  Serial.print(calculateVolume(valorultrasonico));
+  Serial.println("Litros");
+  Serial.println("===============");
+
+  }
+
 
   if (MacSend == 0)
   {
     sendMacAdress();
     MacSend = 1;
   }
-  delay(1000);
+
 }
