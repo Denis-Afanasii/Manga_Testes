@@ -17,7 +17,6 @@ int peltierState = 0;
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-
 const char *mqtt_broker = "192.168.50.10";
 const char *mqtt_username = "pwdam";
 const char *mqtt_password = "pwdam";
@@ -48,7 +47,7 @@ void callback(char *topic, byte *payload, unsigned int length)
     }
 
     Serial.print(message);
-
+    
     if (message == "ON")
     {
       digitalWrite(PELTIER, HIGH);
@@ -58,6 +57,12 @@ void callback(char *topic, byte *payload, unsigned int length)
     {
       digitalWrite(PELTIER, LOW);
       peltierState = 0;
+    }
+    else if (message == "TEMP"){
+      sendTemp();
+    }
+    else if (message == "VOLUME"){
+      sendVolume();
     }
   }
 }
@@ -172,17 +177,13 @@ void loop()
 {
   client.loop();
 
-  /*const char *topic = "raspberry_mqtt";
-  const String message = "test";
-
-  client.publish(topic, String(message).c_str());*/
-
-  // sendTemp();
   unsigned long currentMillisPeltier = millis();
   unsigned long currentMillisTemperature = millis();
   unsigned long currentMillisDistance = millis();
 
-  /*if (currentMillisTemperature - previousMillisTemperature >= 3000)
+
+
+  if (currentMillisTemperature - previousMillisTemperature >= 3000)
   {
     previousMillisTemperature = currentMillisTemperature;
 
@@ -195,9 +196,9 @@ void loop()
 
     sendDistance();
     sendVolume();
-  }*/
+  }
 
-  if(currentMillisDistance - previousMillisDistance >= 2000){
+  /*if(currentMillisDistance - previousMillisDistance >= 2000){
     previousMillisDistance = currentMillisDistance;
 
     float valorultrasonico = ultrasonic1.read();
@@ -211,8 +212,7 @@ void loop()
   Serial.println("Litros");
   Serial.println("===============");
 
-  }
-
+  }*/
 
   if (MacSend == 0)
   {
