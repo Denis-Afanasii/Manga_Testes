@@ -26,103 +26,21 @@ int MacSend = 0;
 
 Ultrasonic ultrasonic1(21, 22);
 
-void callback(char *topic, byte *payload, unsigned int length)
-{
-  Serial.print("Message arrived in topic: ");
-  Serial.print(topic);
-
-  Serial.print(" | Message: '");
-  for (int i = 0; i < length; i++)
-  {
-    Serial.print((char)payload[i]);
-  }
-  Serial.println("'");
-
-  if (String(topic) == "peltierControl")
-  {
-    String message = "";
-    for (int i = 0; i < length; i++)
-    {
-      message.concat((char)payload[i]);
-    }
-
-    Serial.print(message);
-    
-    if (message == "ON")
-    {
-      digitalWrite(PELTIER, HIGH);
-      peltierState = 1;
-    }
-    else if (message == "OFF") // if (String((char)payload[0]) == "OFF")
-    {
-      digitalWrite(PELTIER, LOW);
-      peltierState = 0;
-    }
-    else if (message == "TEMP"){
-      sendTemp();
-    }
-    else if (message == "VOLUME"){
-      sendVolume();
-    }
-  }
-}
-
-void setup()
-{
-  Serial.begin(9600);
-  Serial.println("\nConsole started.");
-
-  WiFi.begin("RPiHotspot", "1234567890");
-
-  Serial.println("A tentar conectar");
-  while (WiFi.status() != WL_CONNECTED)
-  {
-  }
-  Serial.println("Connected to WiFi");
-
-  pinMode(PELTIER, OUTPUT);
-
-  client.setServer(mqtt_broker, port);
-  Serial.println("Connecting");
-  while (!client.connected())
-  {
-    client.connect(mqtt_clientId.c_str(), mqtt_username, mqtt_password);
-
-    delay(500);
-  }
-  Serial.println("Connected to MQTT");
-  
-  client.subscribe("ultraSonic");
-  client.subscribe("peltierControl");
-  client.setCallback(callback);
-
-  //  digitalWrite(PELTIER, HIGH);
-}
-
 const float upperRadius = 15 / 2; // Raio da parte superior do copo em centímetros
 const float lowerRadius = 10 / 2; // Raio da parte inferior do copo em centímetros
-const float containerHeight = 30;   // Altura total do copo em centímetros
+const float containerHeight = 30; // Altura total do copo em centímetros
 
+// Calcular o Volume
 float calculateVolume(float distanceInCentimeters)
 {
-
-  /*
-    Serial.println(upperRadius);
-    Serial.println(lowerRadius);
-    Serial.println(containerHeight);
-  */
-
   float height = containerHeight - distanceInCentimeters;
-  /*Serial.print("Resultado height: ");
-  Serial.println(height);*/
-
 
   float volumeInLiters = (((PI * height) / 3) * (pow(upperRadius, 2) + pow(lowerRadius, 2) + (upperRadius * lowerRadius)) / 1000);
-  /*Serial.print("Resultado do volume: ");
-  Serial.println(volumeInLiters);*/
+
   return volumeInLiters;
 }
 
+// Mandar o Volume
 void sendVolume()
 {
 
@@ -137,6 +55,7 @@ void sendVolume()
   //  {"clientId":"","message":""}
 }
 
+// Mandar a Distancia
 void sendDistance()
 {
   const char *topic = "distance";
@@ -149,6 +68,7 @@ void sendDistance()
   //  {"clientId":"","message":""}
 }
 
+// Mandar o MacAdress
 void sendMacAdress()
 {
   const char *topic = "MacAdress";
@@ -158,6 +78,7 @@ void sendMacAdress()
   client.publish(topic, String(message).c_str());
 }
 
+// Mandar a Temperatura
 void sendTemp()
 {
   int adcVal = analogRead(PIN_LM35);
@@ -173,6 +94,97 @@ void sendTemp()
   client.publish(topic, String(message).c_str());
 }
 
+// Processar e filtrar a mensagem recebida
+void callback(char *topic, byte *payload, unsigned int length)
+{
+  Serial.print("Mensagem recebida no seguinte tópico: ");
+  Serial.print(topic);
+
+  Serial.print(" | Mensagem: '");
+  for (int i = 0; i < length; i++)
+  {
+    Serial.print((char)payload[i]);
+  }
+  Serial.println("' |");
+
+  if (String(topic) == "peltierControl")
+  {
+    String message = "";
+    for (int i = 0; i < length; i++)
+    {
+      message.concat((char)payload[i]);
+    }
+
+    Serial.println(message);
+
+    if (message == "ON")
+    {
+      digitalWrite(PELTIER, HIGH);
+      peltierState = 1;
+    }
+    else if (message == "OFF") // if (String((char)payload[0]) == "OFF")
+    {
+      digitalWrite(PELTIER, LOW);
+      peltierState = 0;
+    }
+  }
+  else if (String(topic) == "askTemp")
+  {
+    String message = "";
+    for (int i = 0; i < length; i++)
+    {
+      message.concat((char)payload[i]);
+    }
+    Serial.println(message);
+    if (message == "TEMP")
+    {
+      sendTemp();
+    }
+  }
+  else if (String(topic) == "askVolume")
+  {
+    String message = "";
+    for (int i = 0; i < length; i++)
+    {
+      message.concat((char)payload[i]);
+    }
+    Serial.println(message);
+    if (message == "Volume")
+    {
+      sendTemp();
+    }
+  }
+}
+
+void setup()
+{
+  Serial.begin(9600);
+  Serial.println("\nConsole started.");
+  WiFi.begin("RPiHotspot", "1234567890");
+  Serial.println("A tentar conectar ao WiFi");
+  while (WiFi.status() != WL_CONNECTED)
+  {
+  }
+  Serial.println("Connected to WiFi");
+
+  pinMode(PELTIER, OUTPUT);
+
+  client.setServer(mqtt_broker, port);
+  Serial.println("Connecting");
+  while (!client.connected())
+  {
+    client.connect(mqtt_clientId.c_str(), mqtt_username, mqtt_password);
+    delay(500);
+  }
+  Serial.println("Connected to MQTT");
+  client.subscribe("ultraSonic");
+  client.subscribe("peltierControl");
+
+  client.setCallback(callback);
+
+  //  digitalWrite(PELTIER, HIGH);
+}
+
 void loop()
 {
   client.loop();
@@ -181,22 +193,22 @@ void loop()
   unsigned long currentMillisTemperature = millis();
   unsigned long currentMillisDistance = millis();
 
+  /*
+    if (currentMillisTemperature - previousMillisTemperature >= 3000)
+    {
+      previousMillisTemperature = currentMillisTemperature;
 
+      sendTemp();
+    }
 
-  if (currentMillisTemperature - previousMillisTemperature >= 3000)
-  {
-    previousMillisTemperature = currentMillisTemperature;
+    if (currentMillisDistance - previousMillisDistance >= 10000)
+    {
+      previousMillisDistance = currentMillisDistance;
 
-    sendTemp();
-  }
-
-  if (currentMillisDistance - previousMillisDistance >= 10000)
-  {
-    previousMillisDistance = currentMillisDistance;
-
-    sendDistance();
-    sendVolume();
-  }
+      sendDistance();
+      sendVolume();
+    }
+    */
 
   /*if(currentMillisDistance - previousMillisDistance >= 2000){
     previousMillisDistance = currentMillisDistance;
@@ -219,5 +231,4 @@ void loop()
     sendMacAdress();
     MacSend = 1;
   }
-
 }
