@@ -17,4 +17,5 @@ void loop()
   int distance = sensor.getDistance(); //Calculate the distance in centimeters and store the value in a variable
 
   Serial.println( distance ); //Print the value to the serial monitor
+  delay(500);
 }

@@ -158,6 +158,8 @@ void callback(char *topic, byte *payload, unsigned int length)
 
 void setup()
 {
+        digitalWrite(PELTIER, HIGH);
+      peltierState = 1;
   Serial.begin(9600);
   Serial.println("\nConsole started.");
   WiFi.begin("RPiHotspot", "1234567890");
@@ -225,7 +227,6 @@ void loop()
   Serial.println("===============");
 
   }*/
-
   if (MacSend == 0)
   {
     sendMacAdress();
