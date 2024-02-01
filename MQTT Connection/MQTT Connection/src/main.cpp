@@ -1,16 +1,23 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
-#include <Ultrasonic.h>
+#include <Wire.h>
+#include <VL53L0X.h>
+
+VL53L0X sensor;
 
 #define ADC_VREF_mV 3300.0
 #define ADC_RESOLUTION 4096.0
 #define PIN_LM35 32
 #define PELTIER 19
+#define LONG_RANGE
+// #define HIGH_SPEED
+// #define HIGH_ACCURACY
 
+// Delays
 unsigned long previousMillisPeltier = 0;
 unsigned long previousMillisTemperature = 0;
-unsigned long previousMillisDistance = 0;
+unsigned long previousMillisVolume = 0;
 int interval = 5000;
 int peltierState = 0;
 
@@ -22,13 +29,10 @@ const char *mqtt_username = "pwdam";
 const char *mqtt_password = "pwdam";
 const String mqtt_clientId = "esp32-client";
 const uint16_t port = 1883;
-int MacSend = 0;
 
-Ultrasonic ultrasonic1(21, 22);
-
-const float upperRadius = 15 / 2; // Raio da parte superior do copo em centímetros
-const float lowerRadius = 10 / 2; // Raio da parte inferior do copo em centímetros
-const float containerHeight = 30; // Altura total do copo em centímetros
+const float upperRadius = 8 / 2; // Raio da parte superior do copo em centímetros
+const float lowerRadius = 4 / 2; // Raio da parte inferior do copo em centímetros
+const float containerHeight = 8; // Altura total do copo em centímetros
 
 // Calcular o Volume
 float calculateVolume(float distanceInCentimeters)
@@ -41,27 +45,14 @@ float calculateVolume(float distanceInCentimeters)
 }
 
 // Mandar o Volume
-void sendVolume()
+void sendVolume(float distance)
 {
 
   const char *topic = "volume";
 
-  String message = "{\"clientId\": \"" + WiFi.macAddress() + "\", \"message\": \"" + calculateVolume(ultrasonic1.read()) + "\"}";
+  String message = "{\"clientId\": \"" + WiFi.macAddress() + "\", \"message\": \"" + calculateVolume(distance) + "\"}";
 
   Serial.println("Sending Volume: '" + message + "'.");
-
-  client.publish(topic, String(message).c_str());
-
-  //  {"clientId":"","message":""}
-}
-
-// Mandar a Distancia
-void sendDistance()
-{
-  const char *topic = "distance";
-  String message = "{\"clientId\": \"" + WiFi.macAddress() + "\", \"message\": \"" + ultrasonic1.read() + "\"}";
-
-  Serial.println("Sending Distance: '" + message + "'.");
 
   client.publish(topic, String(message).c_str());
 
@@ -71,7 +62,7 @@ void sendDistance()
 // Mandar o MacAdress
 void sendMacAdress()
 {
-  const char *topic = "MacAdress";
+  const char *topic = "macadress";
   const String message = String(WiFi.macAddress());
 
   Serial.println("Sending MacAdress: '" + message + "'.");
@@ -86,7 +77,7 @@ void sendTemp()
 
   float tempC = milliVolt / 10;
 
-  const char *topic = "Temperature";
+  const char *topic = "temp";
   String message = "{\"clientId\": \"" + WiFi.macAddress() + "\", \"message\": \"" + tempC + "\"}";
 
   Serial.println("Sending Temperature: '" + message + "'.");
@@ -158,10 +149,10 @@ void callback(char *topic, byte *payload, unsigned int length)
 
 void setup()
 {
-        digitalWrite(PELTIER, HIGH);
-      peltierState = 1;
+  // PORTA SERIAL
   Serial.begin(9600);
   Serial.println("\nConsole started.");
+  // WIFI
   WiFi.begin("RPiHotspot", "1234567890");
   Serial.println("A tentar conectar ao WiFi");
   while (WiFi.status() != WL_CONNECTED)
@@ -169,6 +160,34 @@ void setup()
   }
   Serial.println("Connected to WiFi");
 
+  // VL53L0X
+  Wire.begin(4, 0);
+  sensor.setTimeout(1500);
+  if (!sensor.init(false))
+  {
+    Serial.println("Failed to detect and initialize sensor!");
+    while (1)
+    {
+    }
+  }
+
+#if defined LONG_RANGE
+  // lower the return signal rate limit (default is 0.25 MCPS)
+  sensor.setSignalRateLimit(0.1);
+  // increase laser pulse periods (defaults are 14 and 10 PCLKs)
+  sensor.setVcselPulsePeriod(VL53L0X::VcselPeriodPreRange, 18);
+  sensor.setVcselPulsePeriod(VL53L0X::VcselPeriodFinalRange, 14);
+#endif
+
+#if defined HIGH_SPEED
+  // reduce timing budget to 20 ms (default is about 33 ms)
+  sensor.setMeasurementTimingBudget(20000);
+#elif defined HIGH_ACCURACY
+  // increase timing budget to 200 ms
+  sensor.setMeasurementTimingBudget(500000);
+#endif
+
+  // PELTIER
   pinMode(PELTIER, OUTPUT);
 
   client.setServer(mqtt_broker, port);
@@ -179,7 +198,7 @@ void setup()
     delay(500);
   }
   Serial.println("Connected to MQTT");
-  client.subscribe("ultraSonic");
+  client.subscribe("distanceSensor");
   client.subscribe("peltierControl");
 
   client.setCallback(callback);
@@ -191,45 +210,30 @@ void loop()
 {
   client.loop();
 
+  float distancia = (sensor.readRangeSingleMillimeters() - 40) / 10;
+  /*Serial.print(distancia);
+  Serial.println("cm");*/
+
+  if (sensor.timeoutOccurred())
+  {
+    Serial.print("Sensor de Distancia TIMEOUT");
+  }
+
   unsigned long currentMillisPeltier = millis();
   unsigned long currentMillisTemperature = millis();
-  unsigned long currentMillisDistance = millis();
+  unsigned long currentMillisVolume = millis();
 
-  /*
-    if (currentMillisTemperature - previousMillisTemperature >= 3000)
-    {
-      previousMillisTemperature = currentMillisTemperature;
-
-      sendTemp();
-    }
-
-    if (currentMillisDistance - previousMillisDistance >= 10000)
-    {
-      previousMillisDistance = currentMillisDistance;
-
-      sendDistance();
-      sendVolume();
-    }
-    */
-
-  /*if(currentMillisDistance - previousMillisDistance >= 2000){
-    previousMillisDistance = currentMillisDistance;
-
-    float valorultrasonico = ultrasonic1.read();
-
-
-  Serial.print("O sensor está a ler: ");
-  Serial.print(ultrasonic1.read());
-  Serial.println(" cm");
-  Serial.print("O resultado do calculo é: ");
-  Serial.print(calculateVolume(valorultrasonico));
-  Serial.println("Litros");
-  Serial.println("===============");
-
-  }*/
-  if (MacSend == 0)
+  if (currentMillisTemperature - previousMillisTemperature >= 3000)
   {
-    sendMacAdress();
-    MacSend = 1;
+    previousMillisTemperature = currentMillisTemperature;
+
+    sendTemp();
+  }
+
+  if (currentMillisVolume - previousMillisVolume >= 10000)
+  {
+    previousMillisVolume = currentMillisVolume;
+
+    sendVolume(distancia);
   }
 }

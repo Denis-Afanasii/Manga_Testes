@@ -42,9 +42,10 @@ Wire.begin(4, 0);
 }
 
 void loop(){
-  float distancia = sensor.readRangeSingleMillimeters() - 40;
+  float distancia = (sensor.readRangeSingleMillimeters() - 40)/10;
   Serial.print(distancia);
+  Serial.println("Cm");
   if (sensor.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
 
-  Serial.println();
+//  Serial.println();
 }
