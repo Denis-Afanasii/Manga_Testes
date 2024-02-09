@@ -3,6 +3,7 @@
 #include <PubSubClient.h>
 #include <Wire.h>
 #include <VL53L0X.h>
+#include <Stepper.h>
 
 VL53L0X sensor;
 
@@ -33,6 +34,9 @@ const uint16_t port = 1883;
 const float upperRadius = 8 / 2; // Raio da parte superior do copo em centímetros
 const float lowerRadius = 4 / 2; // Raio da parte inferior do copo em centímetros
 const float containerHeight = 8; // Altura total do copo em centímetros
+
+const int stepsPerRevolution = 250;                              // Passos do motor
+Stepper myStepper = Stepper(stepsPerRevolution, 15, 12, 13, 14); // Pinos do motor
 
 // Calcular o Volume
 float calculateVolume(float distanceInCentimeters)
@@ -73,7 +77,7 @@ void sendMacAdress()
 void sendTemp()
 {
   int adcVal = analogRead(PIN_LM35);
-  float milliVolt = adcVal * (ADC_VREF_mV / ADC_RESOLUTION);
+  float milliVolt = adcVal * (ADC_RESOLUTION / ADC_VREF_mV);
 
   float tempC = milliVolt / 10;
 
@@ -88,62 +92,66 @@ void sendTemp()
 // Processar e filtrar a mensagem recebida
 void callback(char *topic, byte *payload, unsigned int length)
 {
-  Serial.print("Mensagem recebida no seguinte tópico: ");
-  Serial.print(topic);
+  // Serial.print("Mensagem recebida no seguinte tópico: ");
+  // Serial.print(topic);
 
-  Serial.print(" | Mensagem: '");
-  for (int i = 0; i < length; i++)
+  // Serial.print(" | Mensagem: '");
+
+  String MacAdress = "";
+  for (int i = 0; i <= 16; i++)
   {
-    Serial.print((char)payload[i]);
+    MacAdress.concat((char)payload[i]);
+    // Serial.print((char)payload[i]);
   }
-  Serial.println("' |");
 
-  if (String(topic) == "peltierControl")
+  if (MacAdress == WiFi.macAddress())
   {
+    // Serial.println("' |");
+
     String message = "";
-    for (int i = 0; i < length; i++)
+    for (int i = 18; i < length; i++)
     {
       message.concat((char)payload[i]);
     }
 
-    Serial.println(message);
+    if (String(topic) == "peltierControl")
+    {
 
-    if (message == "ON")
-    {
-      digitalWrite(PELTIER, HIGH);
-      peltierState = 1;
+      Serial.println(message);
+
+      if (message == "ON")
+      {
+        digitalWrite(PELTIER, HIGH);
+        peltierState = 1;
+      }
+      else if (message == "OFF") // if (String((char)payload[0]) == "OFF")
+      {
+        digitalWrite(PELTIER, LOW);
+        peltierState = 0;
+      }
     }
-    else if (message == "OFF") // if (String((char)payload[0]) == "OFF")
+    else if (String(topic) == "motorControl")
     {
-      digitalWrite(PELTIER, LOW);
-      peltierState = 0;
+      Serial.println(message);
+      if (message == "clockwise")
+      {
+        myStepper.setSpeed(70);
+        myStepper.step(stepsPerRevolution);
+      }
+      else if (message == "-clockwise")
+      {
+        myStepper.setSpeed(70);
+        myStepper.step(-stepsPerRevolution);
+      }
+      else if (message == "OFF")
+      {
+        myStepper.setSpeed(0);
+      }
     }
-  }
-  else if (String(topic) == "askTemp")
+    }
+  else
   {
-    String message = "";
-    for (int i = 0; i < length; i++)
-    {
-      message.concat((char)payload[i]);
-    }
-    Serial.println(message);
-    if (message == "TEMP")
-    {
-      sendTemp();
-    }
-  }
-  else if (String(topic) == "askVolume")
-  {
-    String message = "";
-    for (int i = 0; i < length; i++)
-    {
-      message.concat((char)payload[i]);
-    }
-    Serial.println(message);
-    if (message == "Volume")
-    {
-      sendTemp();
-    }
+    Serial.println("À espera de receber ordens.");
   }
 }
 
@@ -204,6 +212,8 @@ void setup()
   client.setCallback(callback);
 
   //  digitalWrite(PELTIER, HIGH);
+
+  myStepper.setSpeed(70);
 }
 
 void loop()
@@ -226,14 +236,17 @@ void loop()
   if (currentMillisTemperature - previousMillisTemperature >= 3000)
   {
     previousMillisTemperature = currentMillisTemperature;
-
     sendTemp();
   }
 
-  if (currentMillisVolume - previousMillisVolume >= 10000)
+  if (currentMillisVolume - previousMillisVolume >= 3000)
   {
     previousMillisVolume = currentMillisVolume;
-
     sendVolume(distancia);
   }
+
+  //Serial.println("A ligar o peltier");
+  digitalWrite(10, HIGH);
+  digitalWrite(9, LOW);
+
 }
