@@ -89,6 +89,8 @@ void sendTemp()
   client.publish(topic, String(message).c_str());
 }
 
+int motorSspeed = 70;
+
 // Processar e filtrar a mensagem recebida
 void callback(char *topic, byte *payload, unsigned int length)
 {
@@ -96,6 +98,12 @@ void callback(char *topic, byte *payload, unsigned int length)
   // Serial.print(topic);
 
   // Serial.print(" | Mensagem: '");
+  String f = "";
+  for (int i = 0; i < length; i++)
+  {
+    f.concat((char)payload[i]);
+  }
+  Serial.print("Callback: " + String(topic));
 
   String MacAdress = "";
   for (int i = 0; i <= 16; i++)
@@ -112,6 +120,28 @@ void callback(char *topic, byte *payload, unsigned int length)
     for (int i = 18; i < length; i++)
     {
       message.concat((char)payload[i]);
+    }
+    Serial.print(message);
+
+    if (String(topic) == "motor")
+    {
+      Serial.println(message);
+      if (message == "clockwise")
+      {
+        motorSspeed = stepsPerRevolution;
+        // myStepper.step(stepsPerRevolution);
+        // myStepper.setSpeed(70);
+      }
+      else if (message == "-clockwise")
+      {
+        // myStepper.setSpeed(70);
+        // myStepper.step(-stepsPerRevolution);
+      }
+      else if (message == "OFF")
+      {
+        motorSspeed = 0;
+        // myStepper.setSpeed(1);
+      }
     }
 
     if (String(topic) == "peltierControl")
@@ -130,25 +160,7 @@ void callback(char *topic, byte *payload, unsigned int length)
         peltierState = 0;
       }
     }
-    else if (String(topic) == "motorControl")
-    {
-      Serial.println(message);
-      if (message == "clockwise")
-      {
-        myStepper.setSpeed(70);
-        myStepper.step(stepsPerRevolution);
-      }
-      else if (message == "-clockwise")
-      {
-        myStepper.setSpeed(70);
-        myStepper.step(-stepsPerRevolution);
-      }
-      else if (message == "OFF")
-      {
-        myStepper.setSpeed(0);
-      }
-    }
-    }
+  }
   else
   {
     Serial.println("À espera de receber ordens.");
@@ -161,7 +173,7 @@ void setup()
   Serial.begin(9600);
   Serial.println("\nConsole started.");
   // WIFI
-  WiFi.begin("MEO-EC5A28", "959A2750B3");
+  WiFi.begin("RPiHotspot", "1234567890");
   Serial.println("A tentar conectar ao WiFi");
   while (WiFi.status() != WL_CONNECTED)
   {
@@ -208,16 +220,19 @@ void setup()
   Serial.println("Connected to MQTT");
   client.subscribe("distanceSensor");
   client.subscribe("peltierControl");
+  client.subscribe("motor");
 
   client.setCallback(callback);
 
   //  digitalWrite(PELTIER, HIGH);
 
   myStepper.setSpeed(70);
+  myStepper.step(0);
 }
 
 void loop()
 {
+  myStepper.step(motorSspeed);
   client.loop();
 
   float distancia = (sensor.readRangeSingleMillimeters() - 40) / 10;
@@ -245,8 +260,7 @@ void loop()
     sendVolume(distancia);
   }
 
-  //Serial.println("A ligar o peltier");
-  //digitalWrite(10, HIGH);
-  //digitalWrite(9, LOW);
-
+  // Serial.println("A ligar o peltier");
+  // digitalWrite(10, HIGH);
+  // digitalWrite(9, LOW);
 }
