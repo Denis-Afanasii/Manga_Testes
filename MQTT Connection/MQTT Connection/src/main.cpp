@@ -10,7 +10,7 @@ VL53L0X sensor;
 #define ADC_VREF_mV 3300.0
 #define ADC_RESOLUTION 4096.0
 #define PIN_LM35 32
-#define PELTIER 19
+#define PELTIER 25
 #define LONG_RANGE
 // #define HIGH_SPEED
 // #define HIGH_ACCURACY
@@ -161,12 +161,12 @@ void setup()
   Serial.begin(9600);
   Serial.println("\nConsole started.");
   // WIFI
-  WiFi.begin("RPiHotspot", "1234567890");
+  WiFi.begin("MEO-EC5A28", "959A2750B3");
   Serial.println("A tentar conectar ao WiFi");
   while (WiFi.status() != WL_CONNECTED)
   {
   }
-  Serial.println("Connected to WiFi");
+  Serial.println("A conexão ao WiFi foi um sucesso!");
 
   // VL53L0X
   Wire.begin(4, 0);
@@ -246,7 +246,7 @@ void loop()
   }
 
   //Serial.println("A ligar o peltier");
-  digitalWrite(10, HIGH);
-  digitalWrite(9, LOW);
+  //digitalWrite(10, HIGH);
+  //digitalWrite(9, LOW);
 
 }
